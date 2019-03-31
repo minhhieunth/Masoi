@@ -9,3 +9,7 @@ E:\Users\asus\source\repos\MaSoi\WindowsFormsApp1\obj\Debug\WindowsFormsApp1.csp
 E:\Users\asus\source\repos\MaSoi\WindowsFormsApp1\obj\Debug\WindowsFormsApp1.exe
 E:\Users\asus\source\repos\MaSoi\WindowsFormsApp1\obj\Debug\WindowsFormsApp1.pdb
 E:\Users\asus\source\repos\MaSoi\WindowsFormsApp1\obj\Debug\WindowsFormsApp1.Form2.resources
+E:\Users\asus\source\repos\MaSoi\WindowsFormsApp1\obj\Debug\WindowsFormsApp1.Resources.lblLobby3.resources
+E:\Users\asus\source\repos\MaSoi\WindowsFormsApp1\obj\Debug\WindowsFormsApp1.Config.resources
+E:\Users\asus\source\repos\MaSoi\WindowsFormsApp1\obj\Debug\WindowsFormsApp1.Guide.resources
+E:\Users\asus\source\repos\MaSoi\WindowsFormsApp1\obj\Debug\WindowsFormsApp1.Resources.UserInfo.resources

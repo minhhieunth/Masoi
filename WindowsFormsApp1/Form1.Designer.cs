@@ -126,7 +126,7 @@
             // 
             // panelDangNhap
             // 
-            this.panelDangNhap.BackgroundImage = global::WindowsFormsApp1.Properties.Resources._2;
+            this.panelDangNhap.BackgroundImage = global::WindowsFormsApp1.Properties.Resources.bg;
             this.panelDangNhap.Controls.Add(this.linkLabel2);
             this.panelDangNhap.Controls.Add(this.btnDangNhap);
             this.panelDangNhap.Controls.Add(this.tbMatKhauDangNhap);
