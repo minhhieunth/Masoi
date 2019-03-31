@@ -16,6 +16,7 @@ namespace WindowsFormsApp1
         public Form1()
         {
             InitializeComponent();
+
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -57,7 +58,11 @@ namespace WindowsFormsApp1
 
         private void btnDangNhap_Click(object sender, EventArgs e)
         {
-
+            //Check tai khoan - Tai Khoan chua dung thi show message box -> Tai Khoan chua dung dang nhap lai.
+            //Neu dung 
+            this.Hide();
+            Form2 f2 = new Form2();
+            f2.Show();
         }
 
         private void linkLabel2_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)

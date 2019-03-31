@@ -8,3 +8,4 @@ E:\Users\asus\source\repos\MaSoi\WindowsFormsApp1\obj\Debug\WindowsFormsApp1.csp
 E:\Users\asus\source\repos\MaSoi\WindowsFormsApp1\obj\Debug\WindowsFormsApp1.csproj.CoreCompileInputs.cache
 E:\Users\asus\source\repos\MaSoi\WindowsFormsApp1\obj\Debug\WindowsFormsApp1.exe
 E:\Users\asus\source\repos\MaSoi\WindowsFormsApp1\obj\Debug\WindowsFormsApp1.pdb
+E:\Users\asus\source\repos\MaSoi\WindowsFormsApp1\obj\Debug\WindowsFormsApp1.Form2.resources
