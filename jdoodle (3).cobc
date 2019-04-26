@@ -1,0 +1,46 @@
+﻿IDENTIFICATION DIVISION.
+PROGRAM-ID. HELLO-WORLD.
+DATA DIVISION.
+    WORKING-STORAGE SECTION.
+    01 WS-TABLE1.
+        02 WS-TABLE OCCURS 11 TIMES.
+            03 FILLER PIC X(11).
+            03 WS-TABLE-VAL PIC 9(3).
+                88 WS-TABLE-VAL-SP VALUE "   ".
+            03 FILLER PIC X(3).
+            03 WS-TABLE-TOP PIC X(3).
+                88 WS-TABLE-TOP-O VALUE "O  ".
+                88 WS-TABLE-TOP-N VALUE "N  ".
+    01 I PIC 99.
+    01 J PIC 99.
+    01 COUNT1   PIC 999.
+    01 TOTAL    PIC 9999.
+PROCEDURE DIVISION.
+    DISPLAY 'Calculated lines:'
+    DISPLAY '----------------------'
+    DISPLAY 'NUM_LIGNE! VAL ! TOP' 
+    PERFORM VARYING I FROM 1 BY 1 UNTIL I >11
+        ACCEPT WS-TABLE(I)
+        IF WS-TABLE-VAL(I) NUMERIC AND WS-TABLE-TOP-O(I)
+            DISPLAY  WS-TABLE(I)
+            ADD 1 TO COUNT1
+            ADD WS-TABLE-VAL(I) TO TOTAL
+        END-IF
+    END-PERFORM.
+    DISPLAY 'TOTAL = ' TOTAL.
+    DISPLAY 'NUM OF LINES = ' COUNT1.
+    DISPLAY ' '
+    DISPLAY 'ERROR LINES:'
+    DISPLAY '----------------------' 
+    PERFORM VARYING I FROM 1 BY 1 UNTIL I >11
+        COMPUTE J = I - 1
+        IF WS-TABLE-TOP-O(I) AND WS-TABLE-VAL(I) NOT NUMERIC 
+            IF WS-TABLE-VAL-SP(I)
+                DISPLAY 'Error on the line ' J ': '  WS-TABLE-VAL(I)  ' the value is not filled'
+        ELSE
+            DISPLAY 'Error on the line ' J ': '  WS-TABLE-VAL(I)  ' the value is not number'
+    END-PERFORM.
+STOP RUN.
+
+
+
