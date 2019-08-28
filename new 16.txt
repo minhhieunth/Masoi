@@ -1,0 +1,750 @@
+***************************** Top of Data ******************************
+      ******************************************************************
+      * DESCRIPTION-COURTE                                             *
+      *     SéLECTION LES CONTRATS RESPONSABLE                         *
+      * END-DESCRIPTION-COURTE                                         *
+      ******************************************************************
+      *    - NOM DU PROGRAMME : GPSCRP                                 *
+      *    - PROJET           : PROJET CONTRAT RESPONSABLE             *
+      *    - AUTEUR           : CDS FORFAIT                            *
+      *    - CREATION         : 11/2014                                *
+      *                                                                *
+      ******************************************************************
+      *                    HISTORIQUE DE MAINTENANCE                   *
+      ******************************************************************
+      *-----------*----------*-----------------------------------------*
+      * DATE      ! AUTEUR   ! MOTIF                                   *
+      *-----------*----------*-----------------------------------------*
+CRP0F1* 17/11/2014!   CDS    ! Ajouter un critère qui sélectionne les  *
+CRP0F1*           !  FORFAIT ! contrats en cours pour limiter la       *
+CRP0F1*           !          ! volumétrie NATHP < 6 et ETAREG < 2      *
+CRP0F2*-----------*----------*-----------------------------------------*
+CRP0F2* 24/12/2014!   CDS    ! Prendre en compte la règle :            *
+CRP0F2*           !  FORFAIT ! Si date d'effet du contrat à l'affaire  *
+CRP0F2*           !          ! nouvelle = date d'échéance anniversaire *
+CRP0F2*           !          ! principale et date d'effet de l'affaire *
+CRP0F2*           !          ! nouvelle est <= au 31/12/2015 alors les *
+CRP0F2*           !          ! date de bascule néo-responsable = date  *
+CRP0F2*           !          ! d'échéance anniversaire principale +1 an*
+CRP0F3*-----------*----------*-----------------------------------------*
+CRP0F3* 20/01/2015!   CDS    ! Evolution de QC68 :                     *
+CRP0F3*           !  FORFAIT ! Afin de gérer les dates d'effet futur   *
+CRP0F3*           !          ! dans le batch d'init  pour les AN       *
+CRP0F3*           !          ! provenant de Kiosk, il faut modifier la *
+CRP0F3*           !          ! règle sur l'égalité date effet = date   *
+CRP0F3*           !          ! d'échéance en effectuant le test sur    *
+CRP0F3*           !          ! MM/AAAA au lieu de JJ/MM/AAAA           *
+CRP0F4*-----------*----------*-----------------------------------------*
+CRP0F4* 17/02/2015!   CDS    ! Ajouter un critère qui sélectionne les  *
+CRP0F4*           !  FORFAIT ! contrats suspendus (NATHP = 7)          *
+CRP0F4******************************************************************
+      /                                                                 
+       IDENTIFICATION DIVISION.                                         
+                                                                        
+       PROGRAM-ID. GPSCRP.                                              
+       ENVIRONMENT DIVISION.                                            
+       CONFIGURATION SECTION.                                           
+       SOURCE-COMPUTER. IBM-30XX.                                       
+       SPECIAL-NAMES. DECIMAL-POINT IS COMMA.                           
+       INPUT-OUTPUT SECTION.                                            
+       FILE-CONTROL.                                                    
+                                                                        
+       DATA DIVISION.                                                   
+                                                                        
+       FILE SECTION.                                                    
+                                                                        
+       WORKING-STORAGE SECTION.                                         
+      *-----------------------*                                         
+CRP0F2 REPLACE ==C-MAX-LST== BY ==133==.                                
+       01 CONSTANTES.                                                   
+          05 LINK                 PIC X(4) VALUE 'LINK'.                
+          05 SYST                 PIC X(4) VALUE 'SYST'.                
+          05 INIT                 PIC X(4) VALUE 'INIT'.                
+          05 ETAT                 PIC X(4) VALUE 'ETAT'.                
+          05 GEST                 PIC X(4) VALUE 'GEST'.                
+          05 GADR                 PIC X(4) VALUE 'GADR'.                
+          05 ISRT                 PIC X(4) VALUE 'ISRT'.                
+          05 SAN                  PIC X(4) VALUE 'SAN0'.                
+          05 MVT                  PIC X(4) VALUE 'MVT '.                
+          05 GU                   PIC X(4) VALUE 'GU  '.                
+          05 C-RETACONS           PIC X(8) VALUE 'RETACONS'.            
+CRP0F2    05 C-DTE-CRIT           PIC 9(8) VALUE 20151231.              
+                                                                        
+       01 W-VARIABLES.                                                  
+          05 W-VARIABLES-INIT.                                          
+             10 W-CODE-RET             PIC XX.                          
+             10 W-ANO-MESS             PIC X(80).                       
+             10 W-I                    PIC S9(4) BINARY.                
+             10 W-J                    PIC S9(4) BINARY.                
+             10 W-K                    PIC S9(4) BINARY.                
+CRP0F2       10 W-IHP                  PIC S9(4) BINARY.                
+             10 W-COMPTEUR             PIC Z(8)9.                       
+CRP0F2       10 W-DATE-TEMP-SSAAMMJJ.                                   
+CRP0F2          15 W-DATE-TEMP-SSAAMM.                                  
+CRP0F2             20 W-DATE-TEMPA     PIC 9(04).                       
+CRP0F2             20 W-DATE-TEMPM     PIC 9(02).                       
+CRP0F2          15 W-DATE-TEMPJ        PIC 9(02).                       
+CRP0F2*--> DATE EFFET DU CONTRAT.                                       
+CRP0F2       10 W-DTEFF-SSAAMMJJ.                                       
+CRP0F3          15 W-DTEFF-SSAAMM.                                      
+CRP0F3             20 W-DTEFF-SSAA     PIC 9(04).                       
+CRP0F3             20 W-DTEFF-MM       PIC 9(02).                       
+CRP0F2          15 W-DTEFF-JJ          PIC 9(02).                       
+             10 W-DATE-COR-TEMP.                                        
+                15 W-DATE-COR-TEMPA    PIC 9(04).                       
+                15 W-DATE-COR-TEMPM    PIC 9(02).                       
+             10 W-DATE-MIN-TEMP.                                        
+                15 W-DATE-MIN-TEMPA    PIC 9(04).                       
+                15 W-DATE-MIN-TEMPM    PIC 9(02).                       
+             10 W-DATE-MAX-TEMP.                                        
+                15 W-DATE-MAX-TEMPA    PIC 9(04).                       
+                15 W-DATE-MAX-TEMPM    PIC 9(02).                       
+      * LES TOPS                                                        
+CRP0F2       10                        PIC X(2).                        
+                88 W-CRISEL-OK         VALUE 'OK'.                      
+                88 W-CRISEL-KO         VALUE 'KO'.                      
+CRP0F2       10                        PIC X(2).                        
+                88 W-CTR-TROUVE        VALUE 'OK'.                      
+                88 W-CTR-NTROUVE       VALUE 'KO'.                      
+CRP0F2       10                        PIC X(2).                        
+                88 W-FIN-LISTEUV       VALUE 'OK'.                      
+                88 W-NFIN-LISTEUV      VALUE 'KO'.                      
+CRP0F2       10                        PIC X(2).                        
+                88 W-UV-TROUVE         VALUE 'OK'.                      
+                88 W-UV-NTROUVE        VALUE 'KO'.                      
+CRP0F2       10                        PIC X(2).                        
+CRP0F2          88 W-AN-TROUVE         VALUE 'OK'.                      
+CRP0F2          88 W-AN-NTROUVE        VALUE 'KO'.                      
+             10 W-LISTE-ETACONS        PIC X(798).                      
+             10 W-TABLE-ETACONS REDEFINES W-LISTE-ETACONS.              
+CRP0F2          15 W-LISTE-UV-ETACONS     OCCURS C-MAX-LST.             
+                   20 W-CODE-UV-ETACONS   PIC X(5).                     
+                   20 FILLER              PIC X.                        
+          05 W-VARIABLES-PASINIT.                                       
+             10 W-FLAG-PASG            PIC 9 VALUE 0.                   
+       01 W-LIBELLE-ANO                PIC X(70).                       
+           88 LIBELLE-ANO1 VALUE                                        
+           'GPSCRP : PB ATTRIBUTION ZONE TRAVAIL PHASE INIT'            
+      -    ' - CODE RETOUR:'.                                           
+           88 LIBELLE-ANO2  VALUE                                       
+           'GPSCRP : PB RECUPERATION ZONE TRAVAIL PHASE TRAITEMENT'     
+      -    ' - CODE RETOUR:'.                                           
+           88 LIBELLE-ANO3  VALUE                                       
+           'GPSCRP : DATE MIN NON NUMERIQUE'.                           
+           88 LIBELLE-ANO4  VALUE                                       
+           'GPSCRP : DATE MIN NON RENSEIGNE'.                           
+           88 LIBELLE-ANO5  VALUE                                       
+           'GPSCRP : DATE MIN N''EST PAS EGALE A ZERO'.                 
+           88 LIBELLE-ANO6  VALUE                                       
+           'GPSCRP : DATE CORRIGEE NON NUMERIQUE'.                      
+           88 LIBELLE-ANO7  VALUE                                       
+           'GPSCRP : DATE MAX NON NUMERIQUE'.                           
+           88 LIBELLE-ANO8  VALUE                                       
+           'GPSCRP : DATE MAX NON RENSEIGNE'.                           
+           88 LIBELLE-ANO9  VALUE                                       
+           'GPSCRP : DATE MAX N''EST PAS EGALE A ZERO'.                 
+           88 LIBELLE-ANO10 VALUE                                       
+           'GPSCRP : DATE MIN DOIT ETRE > DATE MAX'.                    
+           88 LIBELLE-ANO11 VALUE                                       
+           'GPSCRP : PB LORS DE LA LECTURE BASE ACN - CODE RETOUR:'.    
+           88 LIBELLE-ANO12 VALUE                                       
+           'GPSCRP : PB LORS DE LA LECTURE BASE SANTE - CODE RETOUR:'.  
+           88 LIBELLE-ANO13  VALUE                                      
+           'GPSCRP : PROBLEME INSERTION MVT - CODE RETOUR:'.            
+           88 LIBELLE-ANO14  VALUE                                      
+           'GPSCRP : PROBLEME APPELER RETACONS - CODE RETOUR:'.         
+           88 LIBELLE-ANO15  VALUE                                      
+           'GPSCRP : PROBLEME DANS RETACONS - CODE RETOUR:'.            
+           88 LIBELLE-ANO16 VALUE                                       
+           'GPSCRP : MOIS DE LA DATE MIN DOIT ETRE <= 12'.              
+           88 LIBELLE-ANO17 VALUE                                       
+           'GPSCRP : MOIS DE LA DATE MAX DOIT ETRE <= 12'.              
+           88 LIBELLE-ANO18 VALUE                                       
+           'GPSCRP : DATE CORRIGEE NON RENSEIGNE'.                      
+           88 LIBELLE-ANO19 VALUE                                       
+           'GPSCRP : DATE CORRIGEE N''EST PAS EGALE A ZERO'.            
+           88 LIBELLE-ANO20 VALUE                                       
+           'GPSCRP : MOIS DE LA DATE CORRIGEE DOIT ETRE <= 12'.         
+       01  SSA-SAN.                                                     
+           05 FILLER            PIC X(19) VALUE 'SANENR  (CLESAN  = '.  
+           05 CLE-SAN           PIC X(16).                              
+           05 FILLER            PIC X VALUE ')'.                        
+           COPY SANENR   SUPPRESS.                                      
+                                                                        
+      **************************************************************    
+      *      DESCRIPTION ZONE DE TRAVAIL                           *    
+      **************************************************************    
+                                                                        
+       01 ZONE-TRAV.                                                    
+          05  ZT-LL                   PIC S9(4) BINARY.                 
+          05  ZT-ZZ                   PIC S9(4) BINARY VALUE ZERO.      
+      * NOMBRE DE CONTRAT LUS                                           
+          05  NB-CPT-CNTS-LUS         PIC 9(9) VALUE ZEROES.            
+      * NOMBRE DE CONTRAT REPORTéS EN SORTIE                            
+          05  NB-CPT-CNTS-SEL         PIC 9(9) VALUE ZEROES.            
+      * NOMBRE DE CONTRAT IGNORéS                                       
+          05  NB-CPT-CNTS-IGN         PIC 9(9) VALUE ZEROES.            
+                                                                        
+      **************************************************************    
+      *      DECLARER DES COPIES                                   *    
+      **************************************************************    
+                                                                        
+           COPY KPSCRP.                                                 
+           COPY LRGNANO.                                                
+           COPY LETACONS.                                               
+           COPY LETERROR.                                               
+                                                                        
+       LINKAGE SECTION.                                                 
+      *---------------*                                                 
+       01 PHASE                       PIC 9.                            
+       01 PARAM.                                                        
+          05 DATE-ETEND.                                                
+             10 DATE-ETENDA           PIC 9(2).                         
+             10 DATE-ETENDM           PIC 9(2).                         
+             10 DATE-ETENDJ           PIC 9(2).                         
+          05 DATE-CONDS.                                                
+             10 DATE-CONDSA           PIC S9(3) PACKED-DECIMAL.         
+             10 DATE-CONDSM           PIC S9(3) PACKED-DECIMAL.         
+             10 DATE-CONDSJ           PIC S9(3) PACKED-DECIMAL.         
+          05 FILLER                   PIC X(01).                        
+          05 CRITERES                 PIC X(72).                        
+          05 CRIT-PARAM  REDEFINES   CRITERES.                          
+             10 PARAM1X.                                                
+                15 PARAM-DTE-COR.                                       
+                   20 PARAM-DTE-CORMM   PIC 9(02).                      
+                   20 PARAM-DTE-CORAA   PIC 9(04).                      
+                15 FILLER               PIC X.                          
+             10 PARAM2X.                                                
+                15 PARAM-DTE-MIN.                                       
+                   20 PARAM-DTE-MINMM   PIC 9(02).                      
+                   20 PARAM-DTE-MINAA   PIC 9(04).                      
+             10 PARAM3X.                                                
+                15 PARAM-DTE-MAX.                                       
+                   20 PARAM-DTE-MAXMM   PIC 9(02).                      
+                   20 PARAM-DTE-MAXAA   PIC 9(04).                      
+             10 FILLER                  PIC X(53).                      
+           COPY ACNENR   SUPPRESS.                                      
+                                                                        
+                                                                        
+       PROCEDURE DIVISION USING PHASE PARAM.                            
+      *-----------------------------------------------*                 
+           EVALUATE PHASE                                               
+           WHEN 2                                                       
+                PERFORM TRAITER-CONTRAT                                 
+           WHEN 1                                                       
+                PERFORM DEBUTER                                         
+           WHEN 3                                                       
+                PERFORM TRAITER-COMPTEUR                                
+           WHEN OTHER                                                   
+                DISPLAY 'GPSCRP - PHASE : ' PHASE 'INCONNU'             
+           END-EVALUATE                                                 
+                                                                        
+           PERFORM FINIR-PGM                                            
+           .                                                            
+                                                                        
+      *--------*                                                        
+       DEBUTER.                                                         
+      *--------*                                                        
+      * LONGUEUR DE LA ZONE DE TRAVAIL                                  
+           MOVE LENGTH OF ZONE-TRAV TO ZT-LL                            
+                                                                        
+      * ATTRIBUTION DE LA ZONE DE TRAVAIL                               
+                                                                        
+           MOVE ZERO    TO  NB-CPT-CNTS-LUS                             
+                            NB-CPT-CNTS-SEL                             
+                            NB-CPT-CNTS-IGN                             
+                                                                        
+           CALL 'CBLTSERV' USING INIT                                   
+                                 GEST                                   
+                                 W-CODE-RET                             
+                                 ZONE-TRAV                              
+           END-CALL                                                     
+                                                                        
+           IF W-CODE-RET = SPACES                                       
+      * CONTROLER PARAMèTRES EN ENTRéE SAISIS DANS JCL                  
+              PERFORM CONTROLER-PARAM-ENT                               
+              PERFORM APPELER-RETACONS                                  
+              MOVE 1         TO W-FLAG-PASG                             
+           ELSE                                                         
+              SET LIBELLE-ANO1   TO TRUE                                
+              STRING W-LIBELLE-ANO W-CODE-RET                           
+                     DELIMITED BY SIZE INTO W-ANO-MESS                  
+              END-STRING                                                
+              PERFORM APPELER-RGNANO                                    
+           END-IF                                                       
+           .                                                            
+                                                                        
+      *---------------*                                                 
+       TRAITER-CONTRAT.                                                 
+      *---------------*                                                 
+                                                                        
+      * ZONE DE TRAVAIL QU'IL FAUT RECUPERER                            
+                                                                        
+           IF W-FLAG-PASG = ZERO                                        
+              MOVE LENGTH OF ZONE-TRAV TO ZT-LL                         
+              CALL 'CBLTSERV' USING ETAT                                
+                                    GEST                                
+                                    W-CODE-RET                          
+                                    ZONE-TRAV                           
+              END-CALL                                                  
+                                                                        
+              IF W-CODE-RET = SPACES                                    
+      * CONTROLER PARAMèTRES EN ENTRéE SAISIS DANS JCL                  
+                 PERFORM CONTROLER-PARAM-ENT                            
+                 PERFORM APPELER-RETACONS                               
+                 MOVE 1            TO W-FLAG-PASG                       
+              ELSE                                                      
+                 SET LIBELLE-ANO2  TO TRUE                              
+                 STRING W-LIBELLE-ANO W-CODE-RET                        
+                        DELIMITED BY SIZE INTO W-ANO-MESS               
+                 END-STRING                                             
+                 PERFORM APPELER-RGNANO                                 
+              END-IF                                                    
+           END-IF                                                       
+                                                                        
+      * RECUPERATION DES INFORMATIONS DU CONTRAT DANS LA BASE ACN       
+           PERFORM LIRE-BASE-ACN                                        
+                                                                        
+      * DETERMINER SI UN CONTRAT LU DANS LA BASE ACN EST ELIGIBLE       
+           PERFORM TRAITER-CRITERE-SELECTION                            
+                                                                        
+      * INSERT MVT DETAILS                                              
+           IF W-CRISEL-OK                                               
+              PERFORM INSERER-MVT                                       
+           ELSE                                                         
+              ADD 1         TO NB-CPT-CNTS-IGN                          
+           END-IF                                                       
+           .                                                            
+                                                                        
+      *--------------------*                                            
+       CONTROLER-PARAM-ENT.                                             
+      *--------------------*                                            
+      * INTIALISER VARIABLES                                            
+           INITIALIZE  W-VARIABLES-INIT                                 
+           MOVE PARAM-DTE-CORMM         TO W-DATE-COR-TEMPM             
+           MOVE PARAM-DTE-CORAA         TO W-DATE-COR-TEMPA             
+           MOVE PARAM-DTE-MINMM         TO W-DATE-MIN-TEMPM             
+           MOVE PARAM-DTE-MINAA         TO W-DATE-MIN-TEMPA             
+           MOVE PARAM-DTE-MAXMM         TO W-DATE-MAX-TEMPM             
+           MOVE PARAM-DTE-MAXAA         TO W-DATE-MAX-TEMPA             
+      * -  CONTROL DU PARAM1X : DATE A CORRIGER                         
+           IF PARAM-DTE-CORMM NOT NUMERIC OR                            
+              PARAM-DTE-CORAA NOT NUMERIC                               
+              IF PARAM-DTE-CORMM > SPACES OR                            
+                 PARAM-DTE-CORAA > SPACES                               
+                 SET LIBELLE-ANO6       TO TRUE                         
+                 MOVE W-LIBELLE-ANO     TO W-ANO-MESS                   
+                 PERFORM APPELER-RGNANO                                 
+              ELSE                                                      
+                 SET LIBELLE-ANO18      TO TRUE                         
+                 MOVE W-LIBELLE-ANO     TO W-ANO-MESS                   
+                 PERFORM APPELER-RGNANO                                 
+              END-IF                                                    
+           ELSE                                                         
+              PERFORM CONTROLER-DTECOR-NUMERIQUE                        
+           END-IF                                                       
+                                                                        
+      * -  CONTROL DU PARAM2X : DATEMIN                                 
+           IF PARAM-DTE-MINMM NOT NUMERIC OR                            
+              PARAM-DTE-MINAA NOT NUMERIC                               
+              IF PARAM-DTE-MINMM > SPACES OR                            
+                 PARAM-DTE-MINAA > SPACES                               
+                 SET LIBELLE-ANO3       TO TRUE                         
+                 MOVE W-LIBELLE-ANO     TO W-ANO-MESS                   
+                 PERFORM APPELER-RGNANO                                 
+              ELSE                                                      
+                 SET LIBELLE-ANO4       TO TRUE                         
+                 MOVE W-LIBELLE-ANO     TO W-ANO-MESS                   
+                 PERFORM APPELER-RGNANO                                 
+              END-IF                                                    
+           ELSE                                                         
+              PERFORM CONTROLER-DTEMIN-NUMERIQUE                        
+           END-IF                                                       
+                                                                        
+      * -  CONTROL DU PARAM3X : DATEMAX                                 
+           IF PARAM-DTE-MAXMM NOT NUMERIC OR                            
+              PARAM-DTE-MAXAA NOT NUMERIC                               
+              IF PARAM-DTE-MAXMM > SPACES OR                            
+                 PARAM-DTE-MAXAA > SPACES                               
+                 SET LIBELLE-ANO7       TO TRUE                         
+                 MOVE W-LIBELLE-ANO     TO W-ANO-MESS                   
+                 PERFORM APPELER-RGNANO                                 
+              ELSE                                                      
+                 SET LIBELLE-ANO8       TO TRUE                         
+                 MOVE W-LIBELLE-ANO     TO W-ANO-MESS                   
+                 PERFORM APPELER-RGNANO                                 
+              END-IF                                                    
+           ELSE                                                         
+              PERFORM CONTROLER-DTEMAX-NUMERIQUE                        
+           END-IF                                                       
+           .                                                            
+                                                                        
+      *---------------------------*                                     
+       CONTROLER-DTECOR-NUMERIQUE.                                      
+      *---------------------------*                                     
+           IF PARAM-DTE-CORMM = ZEROS OR                                
+              PARAM-DTE-CORAA = ZEROS                                   
+              SET LIBELLE-ANO19         TO TRUE                         
+              MOVE W-LIBELLE-ANO        TO W-ANO-MESS                   
+              PERFORM APPELER-RGNANO                                    
+           ELSE                                                         
+              IF W-DATE-COR-TEMPM > 12                                  
+                 SET LIBELLE-ANO20      TO TRUE                         
+                 MOVE W-LIBELLE-ANO     TO W-ANO-MESS                   
+                 PERFORM APPELER-RGNANO                                 
+              END-IF                                                    
+           END-IF                                                       
+           .                                                            
+                                                                        
+      *---------------------------*                                     
+       CONTROLER-DTEMIN-NUMERIQUE.                                      
+      *---------------------------*                                     
+           IF PARAM-DTE-MINMM = ZEROS OR                                
+              PARAM-DTE-MINAA = ZEROS                                   
+              SET LIBELLE-ANO5          TO TRUE                         
+              MOVE W-LIBELLE-ANO        TO W-ANO-MESS                   
+              PERFORM APPELER-RGNANO                                    
+           ELSE                                                         
+              IF W-DATE-MIN-TEMPM > 12                                  
+                 SET LIBELLE-ANO16      TO TRUE                         
+                 MOVE W-LIBELLE-ANO     TO W-ANO-MESS                   
+                 PERFORM APPELER-RGNANO                                 
+              END-IF                                                    
+           END-IF                                                       
+           .                                                            
+                                                                        
+      *---------------------------*                                     
+       CONTROLER-DTEMAX-NUMERIQUE.                                      
+      *---------------------------*                                     
+           IF PARAM-DTE-MAXMM = ZEROS OR                                
+              PARAM-DTE-MAXAA = ZEROS                                   
+              SET LIBELLE-ANO9         TO TRUE                          
+              MOVE W-LIBELLE-ANO        TO W-ANO-MESS                   
+              PERFORM APPELER-RGNANO                                    
+           ELSE                                                         
+              IF W-DATE-MAX-TEMPM > 12                                  
+                 SET LIBELLE-ANO10     TO TRUE                          
+                 MOVE W-LIBELLE-ANO     TO W-ANO-MESS                   
+                 PERFORM APPELER-RGNANO                                 
+              ELSE                                                      
+                 IF W-DATE-MIN-TEMP > W-DATE-MAX-TEMP                   
+                    SET LIBELLE-ANO10 TO TRUE                           
+                    MOVE W-LIBELLE-ANO TO W-ANO-MESS                    
+                    PERFORM APPELER-RGNANO                              
+                 END-IF                                                 
+              END-IF                                                    
+           END-IF                                                       
+           .                                                            
+                                                                        
+      *--------------*                                                  
+       LIRE-BASE-ACN.                                                   
+      *--------------*                                                  
+           MOVE SPACES              TO W-CODE-RET                       
+           CALL  'CBLTSERV'  USING  GADR                                
+                                    GEST                                
+                                    W-CODE-RET                          
+                                    ADDRESS OF ACNENR                   
+           END-CALL                                                     
+                                                                        
+           IF W-CODE-RET = SPACES                                       
+              ADD 1               TO NB-CPT-CNTS-LUS                    
+           ELSE                                                         
+              SET LIBELLE-ANO11    TO TRUE                              
+              STRING W-LIBELLE-ANO W-CODE-RET                           
+                     DELIMITED BY SIZE INTO W-ANO-MESS                  
+              END-STRING                                                
+              PERFORM APPELER-RGNANO                                    
+           END-IF                                                       
+           .                                                            
+                                                                        
+      *--------------------------*                                      
+       TRAITER-CRITERE-SELECTION.                                       
+      *--------------------------*                                      
+           SET W-CRISEL-OK  TO TRUE                                     
+      *Le contrat n'est pas sélectionné si nature de risque n'est pas   
+      *santé                                                            
+           IF CRQ-CODRQ (1) NOT = 'S'                                   
+              SET W-CRISEL-KO TO TRUE                                   
+           END-IF                                                       
+                                                                        
+CRP0F1* Rejeter les contrats résiliés                                   
+CRP0F1*---------------------------------------------------------------- 
+CRP0F1     IF W-CRISEL-OK                                               
+CRP0F4        IF CHP-NATHP (1) = '6'                                    
+CRP0F1           SET W-CRISEL-KO TO TRUE                                
+CRP0F1        END-IF                                                    
+CRP0F1     END-IF                                                       
+CRP0F1*                                                                 
+CRP0F1* Rejeter les contrats non en-cours                               
+CRP0F1*---------------------------------------------------------------- 
+CRP0F1     IF W-CRISEL-OK                                               
+CRP0F1        IF CHP-ETATREG (1) > 1                                    
+CRP0F1           SET W-CRISEL-KO TO TRUE                                
+CRP0F1        END-IF                                                    
+CRP0F1     END-IF                                                       
+CRP0F1*                                                                 
+      *Le contrat n'est que sélectionné si : DATEMIN <= Date d'échéance 
+      *anniversaire < DATEMAX.                                          
+           IF W-CRISEL-OK                                               
+              IF CRQ-DTPRTERA (1) NOT NUMERIC                           
+              OR CRQ-DTPRTERM (1) NOT NUMERIC                           
+              OR CRQ-DTPRTERJ (1) NOT NUMERIC                           
+              OR CRQ-MOISAN (1)   NOT NUMERIC                           
+                 MOVE ZERO        TO CRQ-DTPRTERA (1)                   
+                                     CRQ-DTPRTERM (1)                   
+                                     CRQ-DTPRTERJ (1)                   
+                                     CRQ-MOISAN (1)                     
+              END-IF                                                    
+                                                                        
+              MOVE CRQ-MOISAN(1)               TO W-DATE-TEMPM          
+              ADD 1800 TO CRQ-DTPRTERA (1) GIVING W-DATE-TEMPA          
+              IF CRQ-MOISAN(1) < CRQ-DTPRTERM (1)                       
+                 ADD 1                         TO W-DATE-TEMPA          
+              END-IF                                                    
+                                                                        
+      *   Alimenter l'année anniversaire                                
+              MOVE W-DATE-TEMPA                TO KPSCRP-DTPRTERA       
+      *   Echeance anniversaire corrigee = échéance anniversaire  - 1 an
+CRP0F2        IF W-DATE-TEMP-SSAAMM = W-DATE-COR-TEMP                   
+                 SUBTRACT 1                  FROM W-DATE-TEMPA          
+              END-IF                                                    
+CRP0F2        IF NOT( W-DATE-MIN-TEMP <= W-DATE-TEMP-SSAAMM             
+CRP0F2           AND  W-DATE-MAX-TEMP >  W-DATE-TEMP-SSAAMM)            
+                 SET W-CRISEL-KO               TO TRUE                  
+              END-IF                                                    
+           END-IF                                                       
+                                                                        
+      *Le contrat n'est pas sélectionné si date de bascule révisée  en  
+      *néo-responsible a été renseignée                                 
+           IF W-CRISEL-OK                                               
+              PERFORM LIRE-BASE-SANTE                                   
+              PERFORM VERIFIER-DATE-NEORESP                             
+           END-IF                                                       
+                                                                        
+      *Sélection des contrats responsable                               
+           IF W-CRISEL-OK                                               
+              PERFORM TROUVER-CODEUV-ETACONS                            
+              IF W-UV-NTROUVE                                           
+                 SET W-CRISEL-KO             TO TRUE                    
+              END-IF                                                    
+           END-IF                                                       
+           .                                                            
+                                                                        
+      *-----------------*                                               
+       APPELER-RETACONS.                                                
+      *-----------------*                                               
+           MOVE 'GPSCRP'          TO LETACONS-PGM                       
+           MOVE 'UVRESPON'        TO LETACONS-VALEUR                    
+           MOVE  DATE-CONDS       TO LETACONS-DATE-EFFET                
+           MOVE SPACES            TO W-CODE-RET                         
+           CALL 'CBLTSERV' USING LINK                                   
+                                 SYST                                   
+                                 W-CODE-RET                             
+                                 C-RETACONS                             
+                                 LETACONS                               
+                                 LETERROR                               
+           END-CALL                                                     
+                                                                        
+           IF W-CODE-RET = SPACE                                        
+              IF LETACONS-CODE-RETOUR = SPACES                          
+                 CONTINUE                                               
+              ELSE                                                      
+                 SET LIBELLE-ANO15           TO TRUE                    
+                 STRING W-LIBELLE-ANO LETACONS-CODE-RETOUR              
+                         DELIMITED BY SIZE INTO W-ANO-MESS              
+                 END-STRING                                             
+                 PERFORM APPELER-RGNANO                                 
+              END-IF                                                    
+           ELSE                                                         
+              SET LIBELLE-ANO14 TO TRUE                                 
+              STRING W-LIBELLE-ANO W-CODE-RET                           
+                      DELIMITED BY SIZE INTO W-ANO-MESS                 
+              END-STRING                                                
+              PERFORM APPELER-RGNANO                                    
+           END-IF                                                       
+           .                                                            
+                                                                        
+      *-----------------------*                                         
+       TROUVER-CODEUV-ETACONS.                                          
+      *-----------------------*                                         
+           MOVE LETACONS-LISTE               TO W-LISTE-ETACONS         
+           SET W-NFIN-LISTEUV                TO TRUE                    
+           SET W-UV-NTROUVE                  TO TRUE                    
+           PERFORM VARYING W-K FROM 1 BY 1 UNTIL W-FIN-LISTEUV OR       
+                                                 W-UV-TROUVE            
+              IF W-CODE-UV-ETACONS (W-K) = SPACES                       
+                 SET W-FIN-LISTEUV           TO TRUE                    
+              ELSE                                                      
+                 IF W-CODE-UV-ETACONS (W-K) = CHP-CATDRT (1)            
+                    SET W-UV-TROUVE          TO TRUE                    
+                 END-IF                                                 
+              END-IF                                                    
+           END-PERFORM                                                  
+           .                                                            
+                                                                        
+      *----------------------*                                          
+       VERIFIER-DATE-NEORESP.                                           
+      *----------------------*                                          
+           IF W-CTR-TROUVE                                              
+              IF PDI-DT-NEO-RESP-A IS NUMERIC AND                       
+                 PDI-DT-NEO-RESP-M IS NUMERIC AND                       
+                 PDI-DT-NEO-RESP-J IS NUMERIC                           
+                 IF PDI-DT-NEO-RESP-A > ZEROS AND                       
+                    PDI-DT-NEO-RESP-M > ZEROS AND                       
+                    PDI-DT-NEO-RESP-J > ZEROS                           
+                    SET W-CRISEL-KO TO TRUE                             
+                 END-IF                                                 
+              END-IF                                                    
+           ELSE                                                         
+              SET W-CRISEL-KO TO TRUE                                   
+           END-IF                                                       
+           .                                                            
+                                                                        
+      *----------------*                                                
+       LIRE-BASE-SANTE.                                                 
+      *----------------*                                                
+           SET W-CTR-NTROUVE   TO TRUE                                  
+           MOVE SPACES         TO W-CODE-RET                            
+           MOVE CAD-NUMCLE     TO CLE-SAN                               
+           CALL 'CBLTSERV'     USING  GU                                
+                                      SAN                               
+                                      W-CODE-RET                        
+                                      SANENR                            
+                                      SSA-SAN                           
+           END-CALL                                                     
+           IF W-CODE-RET = SPACE                                        
+              SET W-CTR-TROUVE           TO TRUE                        
+           ELSE                                                         
+              IF W-CODE-RET = 'GE' OR 'GB'                              
+                 SET W-CTR-NTROUVE       TO TRUE                        
+              ELSE                                                      
+                 SET LIBELLE-ANO12 TO TRUE                              
+                 STRING W-LIBELLE-ANO W-CODE-RET                        
+                         DELIMITED BY SIZE INTO W-ANO-MESS              
+                 END-STRING                                             
+                 PERFORM APPELER-RGNANO                                 
+              END-IF                                                    
+           END-IF                                                       
+           .                                                            
+      *-----------------*                                               
+       TRAITER-COMPTEUR.                                                
+      *-----------------*                                               
+                                                                        
+      *--- DECHARGEMENT DU TABLEAU DES COMPTEURS                        
+           DISPLAY ' ************************************************'  
+           DISPLAY '            FIN DU PROGRAMME GPSCRP              '  
+           DISPLAY ' ************************************************'  
+           DISPLAY ' '                                                  
+           MOVE NB-CPT-CNTS-LUS                  TO W-COMPTEUR          
+           DISPLAY 'NOMBRE DE CONTRAT LUS                :' W-COMPTEUR  
+           MOVE NB-CPT-CNTS-SEL                  TO W-COMPTEUR          
+           DISPLAY 'NOMBRE DE CONTRAT REPORTéS EN SORTIE :' W-COMPTEUR  
+           MOVE NB-CPT-CNTS-IGN                  TO W-COMPTEUR          
+           DISPLAY 'NOMBRE DE CONTRAT IGNORéS            :' W-COMPTEUR  
+           .                                                            
+                                                                        
+      *------------*                                                    
+       INSERER-MVT.                                                     
+      *------------*                                                    
+           MOVE LENGTH OF KPSCRP               TO KPSCRP-LL             
+           MOVE CAD-NUMCLE                     TO KPSCRP-NUMCTR         
+           MOVE CAD-GRPCNTA                    TO KPSCRP-NUMPTF         
+           MOVE CAD-NUMCLIA                    TO KPSCRP-NUMCLI         
+           MOVE CHP-CATDRT (1)                 TO KPSCRP-CODE-UV        
+           MOVE CRQ-NATRQ (1)                  TO KPSCRP-NATURE-RISQUE  
+           MOVE CRQ-DTPRTERJ(1)                TO KPSCRP-DTPRTERJ       
+                                                  KPSCRP-DTNEO-RESPJ    
+                                                  KPSCRP-DTNEO-RESPXJ   
+CRP0F2                                            W-DATE-TEMPJ          
+           MOVE CRQ-MOISAN(1)                  TO KPSCRP-DTPRTERM       
+                                                  KPSCRP-DTNEO-RESPM    
+                                                  KPSCRP-DTNEO-RESPXM   
+CRP0F2     PERFORM TRAITER-EFFET-FUTUR                                  
+           MOVE W-DATE-TEMPA                   TO KPSCRP-DTNEO-RESPXA   
+           SUBTRACT 1800 FROM W-DATE-TEMPA GIVING KPSCRP-DTNEO-RESPA    
+                                                                        
+           PERFORM VARYING W-I FROM 1 BY 1  UNTIL W-I > 15              
+              MOVE CRQ-CODTAXA(1, W-I)         TO KPSCRP-CODTAXA(W-I)   
+           END-PERFORM                                                  
+           MOVE SPACES                         TO W-CODE-RET            
+                                                                        
+           CALL  'CBLTSERV'  USING  ISRT                                
+                                    MVT                                 
+                                    W-CODE-RET                          
+                                    KPSCRP                              
+           END-CALL                                                     
+                                                                        
+           IF W-CODE-RET = SPACES                                       
+              ADD 1                    TO NB-CPT-CNTS-SEL               
+           ELSE                                                         
+              SET LIBELLE-ANO13  TO TRUE                                
+              STRING W-LIBELLE-ANO W-CODE-RET                           
+                DELIMITED BY SIZE INTO W-ANO-MESS                       
+              END-STRING                                                
+              PERFORM  APPELER-RGNANO                                   
+           END-IF                                                       
+           .                                                            
+                                                                        
+CRP0F2*-------------------*                                             
+CRP0F2 TRAITER-EFFET-FUTUR.                                             
+CRP0F2*-------------------*                                             
+CRP0F2*--> Déterminer la date effet nouvelle.                           
+CRP0F2     SET  W-AN-NTROUVE                    TO TRUE                 
+CRP0F2     PERFORM VARYING W-IHP FROM 1 BY 1 UNTIL W-IHP > 7            
+CRP0F2                                          OR W-AN-TROUVE          
+CRP0F2        IF CHP-NATHP (W-IHP) = '1'                                
+CRP0F2           SET W-AN-TROUVE                TO TRUE                 
+CRP0F2           IF  CHP-DTEFFHPA (W-IHP) NUMERIC                       
+CRP0F2           AND CHP-DTEFFHPM (W-IHP) NUMERIC                       
+CRP0F2           AND CHP-DTEFFHPJ (W-IHP) NUMERIC                       
+CRP0F2               MOVE CHP-DTEFFHPJ (W-IHP)   TO W-DTEFF-JJ          
+CRP0F2               MOVE CHP-DTEFFHPM (W-IHP)   TO W-DTEFF-MM          
+CRP0F2               ADD  1800                   TO CHP-DTEFFHPA (W-IHP)
+CRP0F2                                       GIVING W-DTEFF-SSAA        
+CRP0F2           ELSE                                                   
+CRP0F2               MOVE ZERO                   TO W-DTEFF-SSAAMMJJ    
+CRP0F2           END-IF                                                 
+CRP0F2        END-IF                                                    
+CRP0F2     END-PERFORM                                                  
+CRP0F2*--> Si date d'effet du contrat à l'affaire nouvelle = date       
+CRP0F2*    d'échéance anniversaire principale et date d'effet de        
+CRP0F2*    l'affaire nouvelle est <= au 31/12/2015 alors les date de    
+CRP0F2*    bascule néo-responsable = date d'échéance anniversaire       
+CRP0F2*    principale + 1 an                                            
+CRP0F2                                                                  
+CRP0F3     IF  W-DTEFF-SSAAMM    = W-DATE-TEMP-SSAAMM                   
+CRP0F2     AND W-DTEFF-SSAAMMJJ <= C-DTE-CRIT                           
+CRP0F2         ADD 1                   TO W-DATE-TEMPA                  
+CRP0F2     END-IF                                                       
+CRP0F2     .                                                            
+      *---------------*                                                 
+       APPELER-RGNANO.                                                  
+      *---------------*                                                 
+           MOVE SPACES                 TO LRGNANO                       
+           MOVE W-ANO-MESS             TO LRGNANO-IN-TEXTE-1            
+           IF CAD-NUMCLE > SPACE                                        
+              MOVE CAD-NUMCLE          TO LRGNANO-IN-CLE                
+           ELSE                                                         
+              MOVE ZERO                TO LRGNANO-IN-CLE                
+           END-IF                                                       
+           MOVE 'STOP'                 TO LRGNANO-IN-FONCTION           
+           MOVE 'PA'                   TO LRGNANO-IN-EQUIPE             
+           MOVE 'GPSCRP  '             TO LRGNANO-IN-PGM                
+           MOVE  'N'                   TO LRGNANO-IN-CTX-GEN-DBWORK     
+                                          LRGNANO-IN-CTX-GEN-DATA       
+                                                                        
+           CALL 'RGNANO' USING LRGNANO                                  
+           END-CALL                                                     
+                                                                        
+           IF LRGNANO-OUT-CODE-RETOUR > SPACE                           
+              DISPLAY  'GPSCRP - ERREUR RGNANO, CODE RETOUR = '         
+                                         LRGNANO-OUT-CODE-RETOUR        
+           END-IF                                                       
+           PERFORM FINIR-PGM                                            
+           .                                                            
+                                                                        
+      *---------*                                                       
+       FINIR-PGM.                                                       
+      *---------*                                                       
+           GOBACK.                                                      
+**************************** Bottom of Data ****************************
